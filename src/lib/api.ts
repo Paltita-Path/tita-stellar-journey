@@ -75,6 +75,17 @@ export async function fetchLatestRecommendations(): Promise<RecItem[] | null> {
   return (data?.items as RecItem[]) ?? null;
 }
 
+export async function fetchRecommendationsHistory(): Promise<{ items: RecItem[]; created_at: string }[]> {
+  const user = await getUser();
+  if (!user) return [];
+  const { data } = await supabase
+    .from("recommendations")
+    .select("items, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+  return (data as any[])?.map((r) => ({ items: r.items as RecItem[], created_at: r.created_at })) ?? [];
+}
+
 export async function getProgress(): Promise<Record<string, boolean>> {
   const user = await getUser();
   if (!user) return {};
@@ -120,4 +131,25 @@ export async function claimBadge(receiverPublicKey: string): Promise<{ hash?: st
     });
   }
   return { hash: txHash };
+}
+
+export async function hasBadge(): Promise<{ has: boolean; lastHash?: string }> {
+  const user = await getUser();
+  if (!user) return { has: false };
+  const { data } = await supabase
+    .from("badges")
+    .select("tx_hash, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return { has: !!data, lastHash: (data as any)?.tx_hash };
+}
+
+export async function resetOnboarding() {
+  const user = await getUser();
+  if (!user) throw new Error("No autenticado");
+  await supabase.from("progress").delete().eq("user_id", user.id);
+  await supabase.from("onboarding_answers").delete().eq("user_id", user.id);
+  // Opcional: no borramos historial de recomendaciones para que el usuario lo conserve
 }

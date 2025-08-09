@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { fetchLatestRecommendations, getProgress, toggleProgress as toggleProgressApi, motivate, claimBadge, generateRecommendations, type RecItem } from "@/lib/api";
+import { fetchLatestRecommendations, getProgress, toggleProgress as toggleProgressApi, motivate, claimBadge, generateRecommendations, type RecItem, hasBadge } from "@/lib/api";
 // RecItem type imported from lib/api
 type ProgressMap = Record<string, boolean>;
 
@@ -16,6 +16,8 @@ export default function Dashboard() {
   const [receiver, setReceiver] = useState<string>("");
   const [open, setOpen] = useState(false);
   const [txHash, setTxHash] = useState<string>("");
+  const [alreadyMinted, setAlreadyMinted] = useState(false);
+  const [lastHash, setLastHash] = useState<string | undefined>(undefined);
   useEffect(() => {
     const init = async () => {
       const a = localStorage.getItem("tita:onboarding");
@@ -35,6 +37,10 @@ export default function Dashboard() {
 
       const rp = localStorage.getItem("tita:receiver");
       if (rp) setReceiver(rp);
+
+      const hb = await hasBadge();
+      setAlreadyMinted(hb.has);
+      setLastHash(hb.lastHash);
     };
     init();
   }, []);
@@ -55,7 +61,7 @@ export default function Dashboard() {
     toast({ title: "Me siento perdido", description: msg });
   };
 
-  const readyToMint = percent === 100;
+  const readyToMint = percent === 100 && !alreadyMinted;
 
   const onMint = async () => {
     if (!receiver) {
