@@ -5,18 +5,17 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
+import { saveOnboardingAnswers, generateRecommendations, type Answers } from "@/lib/api";
+import { toast } from "@/hooks/use-toast";
 
 const steps = ["Experiencia", "Metas", "Tiempo"] as const;
 
-type Answers = {
-  experiencia: "Principiante" | "Intermedio" | "Avanzado" | null;
-  metas: string[];
-  tiempo: "3-5h" | "5-10h" | "10+h" | null;
-};
+type AnswersLocal = Answers;
 
 export default function Onboarding() {
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<Answers>({ experiencia: null, metas: [], tiempo: null });
+  const [loading, setLoading] = useState(false);
+  const [answers, setAnswers] = useState<AnswersLocal>({ experiencia: null, metas: [], tiempo: null });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,9 +34,19 @@ export default function Onboarding() {
     return false;
   };
 
-  const finish = () => {
-    localStorage.setItem("tita:onboarding", JSON.stringify(answers));
-    navigate("/panel");
+  const finish = async () => {
+    if (!canContinue()) return;
+    try {
+      setLoading(true);
+      localStorage.setItem("tita:onboarding", JSON.stringify(answers));
+      await saveOnboardingAnswers(answers);
+      await generateRecommendations(answers);
+      navigate("/panel");
+    } catch (e: any) {
+      toast({ title: "No se pudo guardar", description: e?.message ?? "Intenta de nuevo" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

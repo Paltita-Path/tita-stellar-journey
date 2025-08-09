@@ -1,82 +1,72 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { resources } from "@/data/resources";
-import { issueBadge } from "@/lib/stellar";
-
-export type RecItem = {
-  id: string;
-  title: string;
-  url: string;
-  type: "course" | "hackathon" | "grant";
-  tags: string[];
-};
-
+import { fetchLatestRecommendations, getProgress, toggleProgress as toggleProgressApi, motivate, claimBadge, generateRecommendations, type RecItem } from "@/lib/api";
+// RecItem type imported from lib/api
 type ProgressMap = Record<string, boolean>;
 
 export default function Dashboard() {
   const [answers, setAnswers] = useState<any>(null);
+  const [recs, setRecs] = useState<RecItem[]>([]);
   const [progressMap, setProgressMap] = useState<ProgressMap>({});
   const [receiver, setReceiver] = useState<string>("");
-  const [issuingSecret, setIssuingSecret] = useState<string>("");
   const [open, setOpen] = useState(false);
   const [txHash, setTxHash] = useState<string>("");
-
   useEffect(() => {
-    const a = localStorage.getItem("tita:onboarding");
-    if (a) setAnswers(JSON.parse(a));
-    const p = localStorage.getItem("tita:progress");
-    if (p) setProgressMap(JSON.parse(p));
-    const rp = localStorage.getItem("tita:receiver");
-    if (rp) setReceiver(rp);
+    const init = async () => {
+      const a = localStorage.getItem("tita:onboarding");
+      const parsed = a ? JSON.parse(a) : null;
+      setAnswers(parsed);
+
+      const map = await getProgress();
+      setProgressMap(map);
+
+      const latest = await fetchLatestRecommendations();
+      if (latest && latest.length) {
+        setRecs(latest);
+      } else if (parsed) {
+        const gen = await generateRecommendations(parsed);
+        setRecs(gen);
+      }
+
+      const rp = localStorage.getItem("tita:receiver");
+      if (rp) setReceiver(rp);
+    };
+    init();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("tita:progress", JSON.stringify(progressMap));
-  }, [progressMap]);
-
-  const recs = useMemo(() => {
-    // Muy simple: filtra por experiencia/metas
-    const metas: string[] = answers?.metas ?? [];
-    const level = (answers?.experiencia ?? "Principiante").toLowerCase();
-    const all = [...resources.courses, ...resources.hackathons, ...resources.grants];
-    return all.filter((r) => metas.some((m) => r.tags.includes(m)) || r.tags.includes(level)).slice(0, 9);
-  }, [answers]);
 
   const completed = Object.values(progressMap).filter(Boolean).length;
   const total = recs.length || 1;
   const percent = Math.round((completed / total) * 100);
 
-  const toggle = (id: string) => setProgressMap((m) => ({ ...m, [id]: !m[id] }));
+  const toggle = async (id: string) => {
+    const newVal = !progressMap[id];
+    setProgressMap((m) => ({ ...m, [id]: newVal }));
+    try { await toggleProgressApi(id, newVal); } catch {}
+  };
 
-  const lostMessages = [
-    "Respira. Avanza una tarea pequeña hoy. TITA está contigo.",
-    "Nadie empieza experto. El progreso consistente gana.",
-    "Vuelve a lo básico y elige un solo recurso ahora.",
-  ];
-
-  const handleLost = () => {
-    const msg = lostMessages[Math.floor(Math.random() * lostMessages.length)];
+  const handleLost = async () => {
+    const msg = await motivate({ answers, progress: progressMap });
     toast({ title: "Me siento perdido", description: msg });
   };
 
   const readyToMint = percent === 100;
 
   const onMint = async () => {
-    if (!issuingSecret || !receiver) {
-      toast({ title: "Faltan datos", description: "Ingresa secret del emisor y tu public key de Stellar (testnet)." });
+    if (!receiver) {
+      toast({ title: "Falta tu public key", description: "Ingresa tu public key de Stellar (testnet)." });
       return;
     }
     try {
       localStorage.setItem("tita:receiver", receiver);
-      const result = await issueBadge({ issuingSecret, receiverPublicKey: receiver });
+      const result = await claimBadge(receiver);
       if (result?.hash) {
         setTxHash(result.hash);
-        localStorage.setItem("tita:badge", "minted");
         toast({ title: "NFT emitido (testnet)", description: "Verifica tu cuenta en Stellar Expert testnet." });
         setOpen(false);
       }
@@ -111,8 +101,8 @@ export default function Dashboard() {
                   <DialogTitle>Emitir NFT en Stellar Testnet</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">Solo para pruebas. No compartas secretos en producción. Usa cuentas de testnet y asegúrate de tener trustline al asset.</p>
-                  <Input placeholder="Secret key del emisor (S...)" value={issuingSecret} onChange={(e) => setIssuingSecret(e.target.value)} />
+                  <p className="text-sm text-muted-foreground">Usaremos Stellar Testnet. Asegúrate de tener trustline al asset.
+                  No compartas secretos en frontend; esto llama una Edge Function segura.</p>
                   <Input placeholder="Tu public key receptor (G...)" value={receiver} onChange={(e) => setReceiver(e.target.value)} />
                   {txHash && (
                     <a className="text-sm underline" href={`https://testnet.steexp.com/tx/${txHash}`} target="_blank" rel="noreferrer">Ver transacción</a>
