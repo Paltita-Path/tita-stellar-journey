@@ -53,6 +53,13 @@ All colors MUST be HSL.
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Brand tokens */
+    --brand: 262 83% 57%; /* violet */
+    --brand-2: 198 93% 60%; /* cyan */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--brand)) 0%, hsl(var(--brand-2)) 100%);
+    --shadow-elegant: 0 12px 32px -12px hsl(var(--brand) / 0.35);
+    --shadow-glow: 0 0 32px hsl(var(--brand-2) / 0.35);
   }
 
   .dark {
@@ -91,6 +98,13 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Brand tokens - dark tweaks */
+    --brand: 262 83% 70%;
+    --brand-2: 198 93% 66%;
+    --gradient-primary: linear-gradient(135deg, hsl(var(--brand)) 0%, hsl(var(--brand-2)) 100%);
+    --shadow-elegant: 0 12px 32px -12px hsl(var(--brand) / 0.45);
+    --shadow-glow: 0 0 40px hsl(var(--brand-2) / 0.45);
   }
 }
 
@@ -102,4 +116,11 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+}
+
+@layer utilities {
+  .bg-gradient-primary { background-image: var(--gradient-primary); }
+  .text-gradient-primary { background-image: var(--gradient-primary); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .shadow-elegant { box-shadow: var(--shadow-elegant); }
+  .shadow-glow { box-shadow: var(--shadow-glow); }
 }
