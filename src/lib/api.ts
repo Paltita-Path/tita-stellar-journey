@@ -21,7 +21,8 @@ export async function getUser() {
 }
 
 export async function signInWithEmail(email: string) {
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
+  const redirectTo = new URL("/onboarding", window.location.origin).toString();
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
   if (error) throw error;
 }
 
